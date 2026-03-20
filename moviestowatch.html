@@ -1,0 +1,526 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Movies to Watch</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400&display=swap" rel="stylesheet">
+
+<!-- ============================================================
+  SETUP INSTRUCTIONS
+  ============================================================
+  1. Firebase console → Authentication → Email/Password → Enable
+  2. Authentication → Users → Add user (your email + password)
+  3. Firestore Database → Rules:
+       rules_version = '2';
+       service cloud.firestore {
+         match /databases/{database}/documents {
+           match /users/{userId}/items/{item} {
+             allow read, write: if request.auth.uid == userId;
+           }
+         }
+       }
+  4. Paste your firebaseConfig below
+  ============================================================ -->
+
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: #faf7f2;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    font-family: 'Inter', sans-serif;
+    font-weight: 400;
+    color: #111;
+    padding: 2rem;
+    gap: 2.5rem;
+  }
+
+  /* ---- Login ---- */
+  #login-screen {
+    width: 280px;
+    display: flex;
+    flex-direction: column;
+    gap: 1.4rem;
+  }
+
+  #login-screen h1 {
+    font-size: .7rem;
+    font-weight: 400;
+    letter-spacing: .2em;
+    text-transform: uppercase;
+    color: #bbb;
+  }
+
+  .field { display: flex; flex-direction: column; gap: .5rem; }
+
+  .field label {
+    font-size: .7rem;
+    letter-spacing: .1em;
+    text-transform: uppercase;
+    color: #bbb;
+  }
+
+  .field input {
+    font-family: 'Inter', sans-serif;
+    font-weight: 400;
+    font-size: .9rem;
+    color: #111;
+    background: transparent;
+    border: none;
+    border-bottom: 1px solid #e0e0e0;
+    padding: .4rem 0;
+    outline: none;
+    transition: border-color .2s;
+    width: 100%;
+  }
+
+  .field input:focus { border-bottom-color: #111; }
+
+  #login-btn {
+    font-family: 'Inter', sans-serif;
+    font-weight: 400;
+    font-size: .8rem;
+    letter-spacing: .12em;
+    text-transform: uppercase;
+    color: #111;
+    background: none;
+    border: 1px solid #ddd;
+    padding: .65rem 1rem;
+    cursor: pointer;
+    transition: border-color .2s;
+    margin-top: .2rem;
+  }
+
+  #login-btn:hover { border-color: #111; }
+  #login-btn:disabled { opacity: .3; cursor: default; }
+
+  #login-error {
+    font-size: .75rem;
+    color: #c0392b;
+    display: none;
+  }
+
+  #setup-warning {
+    font-size: .75rem;
+    color: #c0392b;
+    line-height: 1.6;
+    padding: .8rem;
+    border: 1px solid #f5c6c6;
+    background: #fff5f5;
+  }
+
+  /* ---- App ---- */
+  #app { display: none; flex-direction: column; align-items: center; gap: 2.5rem; }
+
+  .app-header {
+    display: flex;
+    align-items: center;
+    gap: 2rem;
+  }
+
+  .main-title {
+    font-size: .75rem;
+    font-weight: 400;
+    letter-spacing: .3em;
+    text-transform: uppercase;
+    color: #111;
+  }
+
+  #signout-btn {
+    font-family: 'Inter', sans-serif;
+    font-size: .7rem;
+    letter-spacing: .1em;
+    text-transform: uppercase;
+    color: #ccc;
+    background: none;
+    border: none;
+    cursor: pointer;
+    transition: color .15s;
+    padding: 0;
+  }
+
+  #signout-btn:hover { color: #111; }
+
+  .layout {
+    display: grid;
+    grid-template-columns: 280px 1px 280px;
+    gap: 0 3rem;
+    align-items: start;
+  }
+
+  .divider {
+    background: #f0f0f0;
+    align-self: stretch;
+  }
+
+  .col-header {
+    font-size: .7rem;
+    font-weight: 400;
+    letter-spacing: .2em;
+    text-transform: uppercase;
+    color: #bbb;
+    margin-bottom: 2rem;
+  }
+
+  .checklist {
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .checklist li {
+    display: flex;
+    align-items: center;
+    gap: .75rem;
+    padding: .55rem 0;
+    border-bottom: 1px solid #f2f2f2;
+    position: relative;
+  }
+
+  .checklist li:hover .delete-btn { opacity: 1; }
+
+  .checklist li input[type="checkbox"] {
+    appearance: none;
+    -webkit-appearance: none;
+    width: 14px;
+    height: 14px;
+    border: 1px solid #ccc;
+    border-radius: 50%;
+    flex-shrink: 0;
+    cursor: pointer;
+    position: relative;
+    transition: border-color .2s, background .2s;
+  }
+
+  .checklist li input[type="checkbox"]:checked {
+    background: #111;
+    border-color: #111;
+  }
+
+  .checklist li input[type="checkbox"]:checked::after {
+    content: '';
+    position: absolute;
+    left: 3.5px;
+    top: 1px;
+    width: 3px;
+    height: 7px;
+    border: 1.5px solid #fff;
+    border-top: none;
+    border-left: none;
+    transform: rotate(45deg);
+  }
+
+  .item-label {
+    font-size: .88rem;
+    font-weight: 400;
+    color: #111;
+    flex: 1;
+    outline: none;
+    border: none;
+    background: transparent;
+    font-family: 'Inter', sans-serif;
+    cursor: text;
+    padding: 0;
+    min-width: 0;
+    line-height: 1.4;
+  }
+
+  #done-list .item-label {
+    text-decoration: line-through;
+    color: #ccc;
+    cursor: default;
+  }
+
+  .delete-btn {
+    opacity: 0;
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: #ccc;
+    font-size: .85rem;
+    line-height: 1;
+    padding: 0;
+    transition: color .15s, opacity .15s;
+    flex-shrink: 0;
+  }
+
+  .delete-btn:hover { color: #c0392b; }
+
+  .add-row {
+    display: flex;
+    align-items: center;
+    gap: .75rem;
+    padding: .55rem 0;
+  }
+
+  .add-icon {
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    border: 1px dashed #ddd;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #ccc;
+    font-size: .7rem;
+    line-height: 1;
+  }
+
+  #new-item-input {
+    font-size: .88rem;
+    font-weight: 400;
+    color: #111;
+    font-family: 'Inter', sans-serif;
+    border: none;
+    background: transparent;
+    outline: none;
+    flex: 1;
+    padding: 0;
+  }
+
+  #new-item-input::placeholder { color: #ccc; }
+
+  #sync-status {
+    font-size: .65rem;
+    color: #ccc;
+    text-align: right;
+    margin-top: 1rem;
+    min-height: 1em;
+    letter-spacing: .05em;
+    grid-column: 1 / -1;
+  }
+</style>
+</head>
+<body>
+
+<!-- Login -->
+<div id="login-screen">
+  <h1>Movies to Watch</h1>
+  <div id="setup-warning" style="display:none">
+    ⚠ Firebase not configured — follow the SETUP INSTRUCTIONS at the top of this file.
+  </div>
+  <div class="field">
+    <label for="email-input">Email</label>
+    <input type="email" id="email-input" autocomplete="email" placeholder="you@example.com">
+  </div>
+  <div class="field">
+    <label for="password-input">Password</label>
+    <input type="password" id="password-input" autocomplete="current-password" placeholder="••••••••">
+  </div>
+  <div id="login-error"></div>
+  <button id="login-btn">Sign in</button>
+</div>
+
+<!-- App -->
+<div id="app">
+  <div class="app-header">
+    <div class="main-title">Movies to Watch</div>
+    <button id="signout-btn">Sign out</button>
+  </div>
+
+  <div class="layout">
+    <div>
+      <div class="col-header">To-watch</div>
+      <ul class="checklist" id="todo-list"></ul>
+      <div class="add-row">
+        <div class="add-icon">+</div>
+        <input type="text" id="new-item-input" placeholder="Add a movie">
+      </div>
+    </div>
+
+    <div class="divider"></div>
+
+    <div>
+      <div class="col-header">Watched</div>
+      <ul class="checklist" id="done-list"></ul>
+    </div>
+
+    <div id="sync-status"></div>
+  </div>
+</div>
+
+<script type="module">
+  import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
+  import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged }
+    from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js';
+  import { getFirestore, collection, doc, setDoc, deleteDoc, onSnapshot, query, where }
+    from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
+
+  // ============================================================
+  // FIREBASE CONFIG
+  // ============================================================
+  const firebaseConfig = {
+    apiKey:            "AIzaSyBQ1_mLwv2tvXZX-OavPdqVwxCxPhL26cU",
+    authDomain:        "movieparadise-15c80.firebaseapp.com",
+    projectId:         "movieparadise-15c80",
+    storageBucket:     "movieparadise-15c80.firebasestorage.app",
+    messagingSenderId: "72091916572",
+    appId:             "1:72091916572:web:986dc85bf345fca52f02d9"
+  };
+  // ============================================================
+
+  const isConfigured = !Object.values(firebaseConfig).some(v => v.startsWith('PASTE_'));
+  if (!isConfigured) {
+    document.getElementById('setup-warning').style.display = 'block';
+    document.getElementById('login-btn').disabled = true;
+  }
+
+  const app  = initializeApp(firebaseConfig);
+  const auth = getAuth(app);
+  const db   = getFirestore(app);
+
+  let unsubscribe = null;
+  let uid = null;
+
+  // ---- Auth ----
+  const loginBtn = document.getElementById('login-btn');
+  const errorEl  = document.getElementById('login-error');
+
+  loginBtn.addEventListener('click', async () => {
+    if (!isConfigured) return;
+    const email    = document.getElementById('email-input').value.trim();
+    const password = document.getElementById('password-input').value;
+    if (!email || !password) { showError('Please enter your email and password.'); return; }
+    loginBtn.disabled = true;
+    errorEl.style.display = 'none';
+    try {
+      await signInWithEmailAndPassword(auth, email, password);
+    } catch(e) {
+      loginBtn.disabled = false;
+      showError('Incorrect email or password.');
+    }
+  });
+
+  document.getElementById('password-input').addEventListener('keydown', e => {
+    if (e.key === 'Enter') loginBtn.click();
+  });
+
+  document.getElementById('signout-btn').addEventListener('click', () => {
+    if (unsubscribe) unsubscribe();
+    signOut(auth);
+  });
+
+  function showError(msg) {
+    errorEl.textContent = msg;
+    errorEl.style.display = 'block';
+  }
+
+  onAuthStateChanged(auth, user => {
+    if (user) {
+      uid = user.uid;
+      document.getElementById('login-screen').style.display = 'none';
+      document.getElementById('app').style.display = 'flex';
+      startSync();
+    } else {
+      uid = null;
+      document.getElementById('login-screen').style.display = 'flex';
+      document.getElementById('app').style.display = 'none';
+      document.getElementById('todo-list').innerHTML = '';
+      document.getElementById('done-list').innerHTML = '';
+      loginBtn.disabled = false;
+      if (unsubscribe) { unsubscribe(); unsubscribe = null; }
+    }
+  });
+
+  // ---- Firestore ----
+  function itemsRef() { return collection(db, 'users', uid, 'movies'); }
+  function setStatus(msg) { document.getElementById('sync-status').textContent = msg; }
+
+  async function saveItem(id, text, watched) {
+    setStatus('Saving…');
+    try {
+      await setDoc(doc(db, 'users', uid, 'movies', id), { text, textLower: text.toLowerCase(), watched });
+      setStatus('Saved ✓');
+      setTimeout(() => setStatus(''), 1500);
+    } catch(e) { setStatus('⚠ Save failed'); console.error(e); }
+  }
+
+  async function removeItem(id) {
+    setStatus('Saving…');
+    try {
+      await deleteDoc(doc(db, 'users', uid, 'movies', id));
+      setStatus('Saved ✓');
+      setTimeout(() => setStatus(''), 1500);
+    } catch(e) { setStatus('⚠ Save failed'); console.error(e); }
+  }
+
+  function startSync() {
+    unsubscribe = onSnapshot(query(itemsRef()), snapshot => {
+      document.getElementById('todo-list').innerHTML = '';
+      document.getElementById('done-list').innerHTML = '';
+
+      // Split and sort
+      const todo = [], watched = [];
+      snapshot.forEach(d => {
+        const data = { id: d.id, ...d.data() };
+        data.watched ? watched.push(data) : todo.push(data);
+      });
+      watched.sort((a, b) => a.textLower.localeCompare(b.textLower));
+
+      todo.forEach(d => renderItem(d.id, d.text, false));
+      watched.forEach(d => renderItem(d.id, d.text, true));
+      setStatus('');
+    }, err => {
+      setStatus('⚠ Could not load — check Firestore rules');
+      console.error(err);
+    });
+  }
+
+  function renderItem(id, text, watched) {
+    const li = document.createElement('li');
+
+    const cb = document.createElement('input');
+    cb.type = 'checkbox';
+    cb.checked = watched;
+
+    const label = document.createElement('span');
+    label.className = 'item-label';
+    label.textContent = text;
+    if (!watched) {
+      label.contentEditable = 'true';
+      label.setAttribute('spellcheck', 'false');
+      label.addEventListener('keydown', e => {
+        if (e.key === 'Enter') { e.preventDefault(); label.blur(); }
+      });
+      label.addEventListener('blur', () => {
+        saveItem(id, label.textContent.trim(), false);
+      });
+    }
+
+    cb.addEventListener('change', () => {
+      saveItem(id, label.textContent.trim(), cb.checked);
+    });
+
+    const del = document.createElement('button');
+    del.className = 'delete-btn';
+    del.textContent = '×';
+    del.addEventListener('click', () => { li.remove(); removeItem(id); });
+
+    li.appendChild(cb);
+    li.appendChild(label);
+    li.appendChild(del);
+
+    const listEl = watched
+      ? document.getElementById('done-list')
+      : document.getElementById('todo-list');
+    listEl.appendChild(li);
+  }
+
+  // ---- Add movie ----
+  const input = document.getElementById('new-item-input');
+  input.addEventListener('keydown', async e => {
+    if (e.key !== 'Enter') return;
+    const val = input.value.trim();
+    if (!val) return;
+    input.value = '';
+    await saveItem('item-' + Date.now(), val, false);
+  });
+</script>
+</body>
+</html>
