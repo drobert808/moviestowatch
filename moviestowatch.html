@@ -159,11 +159,41 @@
     grid-template-columns: 280px 1px 280px;
     gap: 0 3rem;
     align-items: start;
+    width: 100%;
+    max-width: 660px;
   }
 
   .divider {
     background: #f0f0f0;
     align-self: stretch;
+  }
+
+  .app-header {
+    max-width: 660px;
+  }
+
+  @media (max-width: 640px) {
+    body { padding: 2.5rem 1.5rem; }
+
+    .app-header {
+      width: 100%;
+      max-width: 100%;
+    }
+
+    .layout {
+      grid-template-columns: 1fr;
+      grid-template-rows: auto auto auto;
+      gap: 2.5rem 0;
+      max-width: 100%;
+    }
+
+    .divider {
+      height: 1px;
+      width: 100%;
+      align-self: auto;
+    }
+
+    .delete-btn { opacity: 1; }
   }
 
   .col-header {
